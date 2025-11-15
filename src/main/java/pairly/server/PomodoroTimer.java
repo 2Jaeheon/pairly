@@ -1,47 +1,50 @@
 package pairly.server;
 
-import java.util.Timer;
-import java.util.TimerTask;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
 public class PomodoroTimer {
     private static final int POMODORO_SECONDS = 300;
-    private static final long ONE_SECOND_IN_MS = 1000;
 
-    private final Timer timer;
-    private int timeLeftInSeconds;
-    private TimerTask currentTimerTask;
+    private final ScheduledExecutorService scheduler;
+    private ScheduledFuture<?> future;
+    private final AtomicInteger timeLeft = new AtomicInteger(POMODORO_SECONDS);
 
     public PomodoroTimer() {
-        this.timer = new Timer(true);
-        this.timeLeftInSeconds = POMODORO_SECONDS;
+        this.scheduler = Executors.newSingleThreadScheduledExecutor();
     }
 
-    public void start(Consumer<String> tick, Runnable expired) {
+    public synchronized void start(Consumer<String> tick, Runnable expired) {
         stop();
 
-        this.timeLeftInSeconds = POMODORO_SECONDS;
+        future = scheduler.scheduleWithFixedDelay(() -> {
+            int next = timeLeft.decrementAndGet();
 
-        this.currentTimerTask = new TimerTask() {
-            @Override
-            public void run() {
-                timeLeftInSeconds--;
+            try {
+                tick.accept(formatTime(next));
 
-                tick.accept(formatTime(timeLeftInSeconds));
-
-                if (timeLeftInSeconds <= 0) {
-                    expired.run(); // 콜백
-                    timeLeftInSeconds = POMODORO_SECONDS; // 타이머 리셋
+                if (next <= 0) {
+                    try {
+                        expired.run();
+                    } finally {
+                        timeLeft.set(POMODORO_SECONDS);
+                    }
                 }
+            } catch (Exception e) {
+                // 로그만 남기고 타이머는 계속 돌아가야
+                e.printStackTrace();
             }
-        };
 
-        timer.scheduleAtFixedRate(currentTimerTask, 0, ONE_SECOND_IN_MS);
+        }, 0, 1, TimeUnit.SECONDS);
     }
 
-    public void stop() {
-        if (currentTimerTask != null) {
-            currentTimerTask.cancel();
+    public synchronized void stop() {
+        if (future != null) {
+            future.cancel(false);
         }
     }
 

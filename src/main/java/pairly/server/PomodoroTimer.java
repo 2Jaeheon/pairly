@@ -10,18 +10,26 @@ import java.util.function.Consumer;
 public class PomodoroTimer {
     private static final int POMODORO_SECONDS = 300;
 
+    private final int pomodoroSeconds;
     private final ScheduledExecutorService scheduler;
     private ScheduledFuture<?> future;
-    private final AtomicInteger timeLeft = new AtomicInteger(POMODORO_SECONDS);
+    private final AtomicInteger timeLeft;
 
     public PomodoroTimer() {
+        this(POMODORO_SECONDS);
+    }
+
+    public PomodoroTimer(int pomodoroSeconds) {
         this.scheduler = Executors.newSingleThreadScheduledExecutor();
+        this.pomodoroSeconds = pomodoroSeconds;
+        this.timeLeft = new AtomicInteger(pomodoroSeconds);
     }
 
     public synchronized void start(Consumer<String> tick, Runnable expired) {
         stop();
+        this.timeLeft.set(this.pomodoroSeconds);
 
-        future = scheduler.scheduleWithFixedDelay(() -> {
+        future = scheduler.scheduleAtFixedRate(() -> {
             int next = timeLeft.decrementAndGet();
 
             try {
@@ -31,7 +39,7 @@ public class PomodoroTimer {
                     try {
                         expired.run();
                     } finally {
-                        timeLeft.set(POMODORO_SECONDS);
+                        timeLeft.set(this.pomodoroSeconds);
                     }
                 }
             } catch (Exception e) {
@@ -44,7 +52,7 @@ public class PomodoroTimer {
 
     public synchronized void stop() {
         if (future != null) {
-            future.cancel(false);
+            future.cancel(true);
         }
     }
 

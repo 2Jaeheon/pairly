@@ -56,6 +56,12 @@ public class ClientSession implements Runnable {
         }
     }
 
+    public synchronized void sendRawMessage(String message) {
+        if (out != null) {
+            out.println(message);
+        }
+    }
+
     public synchronized void sendMessage(ServerMessage message) {
         if (out != null) {
             String json = jsonConverter.toJson(message);

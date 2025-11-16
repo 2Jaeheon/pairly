@@ -11,9 +11,8 @@ import pairly.domain.Role;
 
 public class ConsoleView {
 
-    private static final int CODE_REVIEW_HEIGHT = 30;
+    private static final int CODE_REVIEW_HEIGHT = 20;
     private static final String SEPARATOR = "=".repeat(70);
-    private static final String COMMENT_PREFIX = "⭐️";
 
     // 최산 상태를 보관하는 홀더
     private final AtomicReference<ClientState> clientStateHolder;
@@ -81,6 +80,6 @@ public class ConsoleView {
             return "";
         }
 
-        return AnsiConsole.colorCyan("\"" + COMMENT_PREFIX + marker.getComment() + "\"");
+        return AnsiConsole.colorCyan("\"" + marker.getComment() + "\"");
     }
 }

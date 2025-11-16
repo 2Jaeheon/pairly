@@ -16,4 +16,16 @@ public record ClientState(Role role, String leftTime, String statusMessage) {
         }
         return "CODE_REVIEWER";
     }
+
+    public ClientState withRole(Role newRole) {
+        return new ClientState(newRole, this.leftTime, this.statusMessage);
+    }
+
+    public ClientState withTime(String newTime) {
+        return new ClientState(this.role, newTime, this.statusMessage);
+    }
+
+    public ClientState withStatusMessage(String newStatus) {
+        return new ClientState(this.role, this.leftTime, newStatus);
+    }
 }

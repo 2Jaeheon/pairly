@@ -15,4 +15,8 @@ public class SyncCommand implements Command {
         // 이 객체의 책임은 'EditorState의 코드를 동기화'하는 것.
         editorState.syncCode(codeLines);
     }
+
+    public List<String> getCodeLines() {
+        return codeLines;
+    }
 }

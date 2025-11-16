@@ -3,9 +3,11 @@ package pairly.server;
 import java.io.IOException;
 import java.net.Socket;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import pairly.common.exception.InvalidCommandException;
 import pairly.common.message.ClientMessage;
+import pairly.common.message.MarkerUpdateDto;
 import pairly.common.message.MessageType;
 import pairly.common.message.ServerMessage;
 import pairly.common.util.JsonConverter;
@@ -98,7 +100,14 @@ public class SessionManager {
         }
 
         if (command instanceof MarkCommand) {
-            String markersJson = jsonConverter.toJson(editorState.getMarks());
+            List<MarkerUpdateDto> dtos = editorState.getMarks().entrySet().stream()
+                    .map(entry -> new MarkerUpdateDto(
+                            entry.getKey(),
+                            entry.getValue().getComment()
+                    ))
+                    .toList();
+
+            String markersJson = jsonConverter.toJson(dtos);
             return new ServerMessage(MessageType.MARK_UPDATE, markersJson);
         }
 

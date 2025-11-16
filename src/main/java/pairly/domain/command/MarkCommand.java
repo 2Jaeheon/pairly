@@ -20,4 +20,12 @@ public class MarkCommand implements Command {
         Marker marker = new Marker(comment);
         editorState.addMarker(lineNumber, marker);
     }
+
+    public int getLineNumber() {
+        return lineNumber;
+    }
+
+    public String getComment() {
+        return comment;
+    }
 }

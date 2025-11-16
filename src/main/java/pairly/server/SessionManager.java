@@ -2,8 +2,14 @@ package pairly.server;
 
 import java.io.IOException;
 import java.net.Socket;
+import java.util.HashMap;
+import java.util.Map;
 import pairly.common.message.ClientMessage;
+import pairly.common.message.MessageType;
+import pairly.common.message.ServerMessage;
 import pairly.common.util.JsonConverter;
+import pairly.domain.EditorState;
+import pairly.domain.Role;
 
 public class SessionManager {
 
@@ -11,9 +17,16 @@ public class SessionManager {
     private ClientSession clientB = null;
 
     private final JsonConverter jsonConverter;
+    private final PomodoroTimer pomodoroTimer;
+    private final RoleManager roleManager;
+    private final EditorState editorState;
+    private final Map<ClientSession, Role> roles = new HashMap<>();
 
     public SessionManager() {
         this.jsonConverter = new JsonConverter();
+        this.pomodoroTimer = new PomodoroTimer();
+        this.roleManager = new RoleManager();
+        this.editorState = new EditorState();
     }
 
     public synchronized void handleNewConnection(Socket socket) {
@@ -66,6 +79,9 @@ public class SessionManager {
             return;
         }
 
+        pomodoroTimer.stop();
+        System.out.println("Pomodoro 타이머 중지됨");
+
         if (sessionWasActive) {
             remainingClient.sendRawMessage("파트너의 연결이 끊겼습니다. 세션을 종료합니다.");
 
@@ -83,5 +99,55 @@ public class SessionManager {
 
     private void startSession() {
         System.out.println("세션 시작됨 (A, B 모두 접속)");
+
+        // 초기 역할 할당
+        roles.put(clientA, Role.CODE_WRITER);
+        roles.put(clientB, Role.CODE_REVIEWER);
+
+        // Pomodoro 타이머 시작 및 콜백 등록
+        pomodoroTimer.start(this::broadcastTime, this::swapRoles);
+
+        // 초기 역할 전송
+        clientA.sendMessage(new ServerMessage(MessageType.ROLE_SWAP, Role.CODE_WRITER.name()));
+        clientB.sendMessage(new ServerMessage(MessageType.ROLE_SWAP, Role.CODE_REVIEWER.name()));
+
+        // 초기 에디터 상태 전송
+        String initialCode = String.join("\n", editorState.getCodeLines());
+        broadcast(new ServerMessage(MessageType.SYNC_UPDATE, initialCode));
+    }
+
+    private void broadcastTime(String time) {
+        ServerMessage timeMsg = new ServerMessage(MessageType.TIMER_TICK, time);
+        broadcast(timeMsg);
+    }
+
+    private synchronized void swapRoles() {
+        if (clientA == null || clientB == null) {
+            System.out.println("역할 교대 시도 중단");
+            return;
+        }
+
+        System.out.println("시간 만료! 역할 교대 실행.");
+
+        Role newRoleA = roleManager.swapRole(roles.get(clientA));
+        roles.put(clientA, newRoleA);
+        Role newRoleB = roleManager.swapRole(roles.get(clientB));
+        roles.put(clientB, newRoleB);
+
+        clientA.sendMessage(new ServerMessage(MessageType.ROLE_SWAP, newRoleA.name()));
+        clientB.sendMessage(new ServerMessage(MessageType.ROLE_SWAP, newRoleB.name()));
+
+        editorState.clearMarkers();
+        String emptyMarkersJson = jsonConverter.toJson(editorState.getMarks());
+        broadcast(new ServerMessage(MessageType.MARK_UPDATE, emptyMarkersJson));
+    }
+
+    private void broadcast(ServerMessage message) {
+        if (clientA != null) {
+            clientA.sendMessage(message);
+        }
+        if (clientB != null) {
+            clientB.sendMessage(message);
+        }
     }
 }

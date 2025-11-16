@@ -28,4 +28,8 @@ public class EditorState {
     public Map<Integer, Marker> getMarks() {
         return Map.copyOf(this.marks);
     }
+
+    public void clearMarkers() {
+        this.marks.clear();
+    }
 }

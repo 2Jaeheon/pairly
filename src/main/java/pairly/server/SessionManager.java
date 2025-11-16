@@ -194,7 +194,7 @@ public class SessionManager {
         clientB.sendMessage(new ServerMessage(MessageType.ROLE_SWAP, newRoleB.name()));
 
         editorState.clearMarkers();
-        String emptyMarkersJson = jsonConverter.toJson(editorState.getMarks());
+        String emptyMarkersJson = jsonConverter.toJson(List.of());
         broadcast(new ServerMessage(MessageType.MARK_UPDATE, emptyMarkersJson));
     }
 

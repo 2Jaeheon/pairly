@@ -4,12 +4,18 @@ import java.io.IOException;
 import java.net.Socket;
 import java.util.HashMap;
 import java.util.Map;
+import pairly.common.exception.InvalidCommandException;
 import pairly.common.message.ClientMessage;
 import pairly.common.message.MessageType;
 import pairly.common.message.ServerMessage;
 import pairly.common.util.JsonConverter;
 import pairly.domain.EditorState;
 import pairly.domain.Role;
+import pairly.domain.command.Command;
+import pairly.domain.command.CommandFactory;
+import pairly.domain.command.MarkCommand;
+import pairly.domain.command.QuitCommand;
+import pairly.domain.command.SyncCommand;
 
 public class SessionManager {
 
@@ -20,6 +26,7 @@ public class SessionManager {
     private final PomodoroTimer pomodoroTimer;
     private final RoleManager roleManager;
     private final EditorState editorState;
+    private final CommandFactory commandFactory;
     private final Map<ClientSession, Role> roles = new HashMap<>();
 
     public SessionManager() {
@@ -27,6 +34,7 @@ public class SessionManager {
         this.pomodoroTimer = new PomodoroTimer();
         this.roleManager = new RoleManager();
         this.editorState = new EditorState();
+        this.commandFactory = new CommandFactory();
     }
 
     public synchronized void handleNewConnection(Socket socket) {
@@ -58,8 +66,47 @@ public class SessionManager {
     }
 
     public synchronized void processMessage(ClientSession sender, ClientMessage msg) {
-        // 임시: 미구현 상태
-        System.out.println("[SessionManager] 메시지 수신" + msg.getType());
+        try {
+            Role senderRole = roles.get(sender);
+            if (senderRole == null) {
+                throw new InvalidCommandException("아직 역할이 할당되지 않았습니다.");
+            }
+
+            Command command = commandFactory.create(msg);
+            roleManager.validate(senderRole, command);
+            command.execute(this.editorState);
+
+            ServerMessage updateMsg = createUpdateMessage(command);
+
+            if (updateMsg != null) {
+                broadcast(updateMsg);
+            }
+        } catch (InvalidCommandException e) {
+            System.err.println("[권한 오류] " + e.getMessage());
+            sender.sendMessage(new ServerMessage(MessageType.ERROR, e.getMessage()));
+        } catch (Exception e) {
+            System.err.println("[서버 오류] " + e.getMessage());
+            e.printStackTrace();
+            sender.sendMessage(new ServerMessage(MessageType.ERROR, "알 수 없는 서버 오류입니다."));
+        }
+    }
+
+    private ServerMessage createUpdateMessage(Command command) {
+        if (command instanceof SyncCommand) {
+            String fullCode = String.join("\n", editorState.getCodeLines());
+            return new ServerMessage(MessageType.SYNC_UPDATE, fullCode);
+        }
+
+        if (command instanceof MarkCommand) {
+            String markersJson = jsonConverter.toJson(editorState.getMarks());
+            return new ServerMessage(MessageType.MARK_UPDATE, markersJson);
+        }
+
+        if (command instanceof QuitCommand) {
+            return null;
+        }
+
+        throw new IllegalStateException("알 수 없는 명령어 타입입니다");
     }
 
     public synchronized void clientDisconnected(ClientSession session) {

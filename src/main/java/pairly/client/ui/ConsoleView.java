@@ -41,6 +41,21 @@ public class ConsoleView {
         drawFooter(currentState);
     }
 
+    public void redrawHeaderOnly(ClientState state) {
+        AnsiConsole.printAndFlush(AnsiConsole.SAVE_CURSOR);
+
+        AnsiConsole.printAndFlush(AnsiConsole.moveTo(1, 1));
+
+        String headerLine = AnsiConsole.colorYellow(
+                "[ ROLE: " + state.getRoleDisplayName() + " | TIME LEFT: " + state.leftTime() + " ]");
+        AnsiConsole.printAndFlush(headerLine + AnsiConsole.CLEAR_LINE);
+
+        AnsiConsole.printAndFlush(AnsiConsole.moveTo(2, 1));
+        AnsiConsole.printAndFlush(SEPARATOR + AnsiConsole.CLEAR_LINE);
+
+        AnsiConsole.printAndFlush(AnsiConsole.RESTORE_CURSOR);
+    }
+
     private void drawHeader(ClientState state) {
         String roleName = state.getRoleDisplayName();
         String time = state.leftTime();

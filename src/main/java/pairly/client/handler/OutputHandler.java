@@ -11,6 +11,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import pairly.client.ClientState;
 import pairly.client.ui.ConsoleView;
 import pairly.common.message.MarkerUpdateDto;
+import pairly.common.message.MessageType;
 import pairly.common.message.ServerMessage;
 import pairly.common.util.JsonConverter;
 import pairly.domain.EditorState;
@@ -47,14 +48,19 @@ public class OutputHandler implements Runnable {
                     ServerMessage msg = jsonConverter.fromJson(line, ServerMessage.class);
                     processServerMessage(msg);
 
+                    if (msg.getType() == MessageType.TIMER_TICK) {
+                        consoleView.redrawHeaderOnly(clientStateHolder.get());
+                    } else {
+                        consoleView.redraw();
+                    }
+
                 } catch (Exception e) {
                     System.err.println("서버 메시지 처리 오류: " + e.getMessage());
                     clientStateHolder.updateAndGet(old ->
                             old.withStatusMessage("[파싱 오류] " + e.getMessage())
                     );
+                    consoleView.redraw();
                 }
-
-                consoleView.redraw();
             }
         } catch (IOException e) {
             System.err.println("서버 연결이 끊겼습니다: " + e.getMessage());
@@ -102,6 +108,7 @@ public class OutputHandler implements Runnable {
 
             default:
                 System.out.println("알 수 없는 서버 메시지 수신: " + msg.getType());
+                break;
         }
     }
 }

@@ -139,15 +139,24 @@ public class SessionManager {
         System.out.println("Pomodoro 타이머 중지됨");
 
         if (sessionWasActive) {
-            remainingClient.sendRawMessage("파트너의 연결이 끊겼습니다. 세션을 종료합니다.");
+            remainingClient.sendMessage(new ServerMessage(
+                    MessageType.ERROR,
+                    "파트너의 연결이 끊겼습니다. 세션을 종료합니다."
+            ));
 
             if (remainingClient == clientB) {
                 clientA = clientB;
                 clientB = null;
-                clientA.sendRawMessage("파트너를 기다리는 중입니다...");
+                clientA.sendMessage(new ServerMessage(
+                        MessageType.ERROR,
+                        "파트너를 기다리는 중입니다..."
+                ));
                 System.out.println("Client B를 Client A로 이동, 다시 대기 시작.");
             } else {
-                clientA.sendRawMessage("파트너를 기다리는 중입니다...");
+                clientA.sendMessage(new ServerMessage(
+                        MessageType.ERROR,
+                        "파트너를 기다리는 중입니다..."
+                ));
                 System.out.println("Client A가 파트너를 기다립니다.");
             }
         }

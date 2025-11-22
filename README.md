@@ -54,6 +54,47 @@
 핵심 기능에 대한 다이어그램은 다음과 같습니다
 ![img.png](resources/mainFeatureDiagramV1.png)
 
+## 기술적 도전과 난관
+
+프로젝트를 진행하며 마주친 기술적 난관과 해결 과정을 요약했습니다.
+
+### 1. Blocking I/O 문제 해결과 스레드 분리 (`client.handler`)
+
+* **Problem**: 콘솔의 `Scanner` 입력 대기로 인해, 사용자가 입력을 멈추면 서버의 메시지(상대방의 코드 변경 사항)를 실시간으로 수신하지 못하는 문제가 발생했습니다.
+* **Solution**: 입력과 출력의 책임을 분리하여 독립적인 스레드로 관리했습니다.
+    * `InputHandler`: 메인 스레드에서 사용자 명령 입력을 전담합니다.
+    * `OutputHandler`: 별도의 데몬 스레드에서 서버의 메시지를 비동기적으로 수신하고 UI(`ConsoleView`)를 갱신합니다.
+    * 이를 통해 사용자 입력 중에도 상대방의 코드 타이핑이 실시간으로 반영되는 구조를 완성했습니다.
+
+### 2. 명령어 확장성을 위한 커맨드 패턴 적용 (`domain.command`)
+
+* **Problem**: `:sync`, `:m`, `:quit` 등 다양한 명령어 로직이 `InputHandler` 내부에 `if-else` 문으로 뒤섞여, 기능이 추가될수록 코드가 비대해지고 유지보수가
+  어려워졌습니다.
+* **Solution**: Command Pattern을 도입하여 각 명령어를 객체로 캡슐화했습니다.
+    * `Command` 인터페이스와 `SyncCommand`, `MarkCommand` 등의 구현체로 분리했습니다.
+    * `CommandFactory`를 통해 입력된 문자열을 적절한 커맨드 객체로 매핑함으로써, 새로운 명령어가 추가되더라도 기존 로직을 수정할 필요가 없는 유연한 구조를 설계했습니다.
+
+### 3. 동시성 제어와 상태 관리 (`server` & `domain`)
+
+* **Problem**: 두 명의 클라이언트와 타이머 스레드가 동시에 `EditorState`나 `Role`(작성자/리뷰어)을 변경하려 할 때 Race Condition이 발생했습니다.
+* **Solution**:
+    * `SessionManager`: 서버 측의 진입점을 하나로 제한하고, 상태 변경 메서드에 `synchronized`를 적용하여 원자성을 보장했습니다.
+    * `PomodoroTimer`: `ScheduledExecutorService`를 사용하여 타이머를 별도 스레드로 분리하고, 타이머 만료 시 `RoleManager`를 통해 안전하게 역할을 교대하도록 콜백
+      구조를 구현했습니다.
+
+### 4. 타이머의 안정성 확보와 콜백 패턴 (`server.PomodoroTimer`)
+
+* **Problem**: 초기에는 `java.util.Timer`를 사용했으나, 타이머 태스크 내부에서 예외가 발생하면 타이머 스레드 자체가 종료되는 치명적인 문제가
+  있었습니다. 또한, 타이머가 서버의 비즈니스 로직과 강하게 결합되어 있어 테스트가 어려웠습니다.
+* **Solution**:
+    * **동작 파라미터화 적용**: 타이머가 수행해야 할 동작(이벤트)을 직접 구현하는 대신 외부에서 주입받도록 설계하여, 자바의 함수형 인터페이스인 `Consumer<String>`(시간 갱신)과
+      `Runnable`(시간 만료)을 생성자로 주입받아, 시간이 흘렀다는 사실과 시간 만료의 행동을 완벽하게 분리하였습니다.
+    * **`ScheduledExecutorService` 도입**: 스레드 풀 기반의 스케줄러로 교체하여 안정적인 주기(1초) 실행을 보장했습니다.
+    * **방어적 예외 처리 (Exception Isolation)**: `scheduler.scheduleAtFixedRate` 람다 내부에서 `try-catch` 블록으로 콜백 메서드(
+      `tick.accept`)를 감쌌습니다. 이를 통해 클라이언트 전송 과정에서 예외가 발생하더라도 타이머는 멈추지 않고 계속 동작하도록 설계했습니다.
+    * **Thread-Safe 상태 관리**: `synchronized` 키워드로 타이머의 시작/정지를 동기화하고, 남은 시간은 `AtomicInteger`를 사용하여 원자성을 확보하여 동시성 문제를
+      방지했습니다.
+
 # 설계 및 주요 객체
 
 - **SessionManager**

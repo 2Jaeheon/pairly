@@ -3,6 +3,7 @@ package pairly;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
+import pairly.config.AppConfig;
 import pairly.server.SessionManager;
 
 public class ServerApplication {
@@ -10,7 +11,8 @@ public class ServerApplication {
 
     public static void main(String[] args) {
         System.out.println("서버를 시작합니다... ");
-        SessionManager sessionManager = new SessionManager();
+        AppConfig appConfig = new AppConfig();
+        SessionManager sessionManager = appConfig.sessionManager();
 
         try (ServerSocket serverSocket = new ServerSocket(PORT)) {
 

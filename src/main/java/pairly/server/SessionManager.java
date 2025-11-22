@@ -31,12 +31,16 @@ public class SessionManager {
     private final CommandFactory commandFactory;
     private final Map<ClientSession, Role> roles = new HashMap<>();
 
-    public SessionManager() {
-        this.jsonConverter = new JsonConverter();
-        this.pomodoroTimer = new PomodoroTimer();
-        this.roleManager = new RoleManager();
-        this.editorState = new EditorState();
-        this.commandFactory = new CommandFactory();
+    public SessionManager(JsonConverter jsonConverter,
+                          PomodoroTimer pomodoroTimer,
+                          RoleManager roleManager,
+                          EditorState editorState,
+                          CommandFactory commandFactory) {
+        this.jsonConverter = jsonConverter;
+        this.pomodoroTimer = pomodoroTimer;
+        this.roleManager = roleManager;
+        this.editorState = editorState;
+        this.commandFactory = commandFactory;
     }
 
     public synchronized void handleNewConnection(Socket socket) {
